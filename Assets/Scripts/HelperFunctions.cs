@@ -13,4 +13,23 @@ public class HelperFunctions
 
         return (bottomLeft, bottomRight, topRight, topLeft);
     }
+
+    public static Vector2 RotateVector(Vector2 vector, float angleInDegrees)
+    {
+        // Convert angle to radians
+        float angleRad = angleInDegrees * Mathf.Deg2Rad;
+        
+        // Create rotation matrix components
+        float cos = Mathf.Cos(angleRad);
+        float sin = Mathf.Sin(angleRad);
+        
+        // Rotation matrix multiplication:
+        // [cos -sin] [x]
+        // [sin  cos] [y]
+        return new Vector2(
+            vector.x * cos - vector.y * sin,
+            vector.x * sin + vector.y * cos
+        );
+    }
+
 }

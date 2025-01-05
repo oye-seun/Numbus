@@ -189,10 +189,10 @@ public class Sketcher : MonoBehaviour
         if(_delay - Time.deltaTime <= 0 && _delay > 0)
         {
             GameObject number = Instantiate(_number);
-            // PolygonCollider2D polyCollider = number.GetComponent<PolygonCollider2D>(); 
-            EdgeCollider2D polyCollider = number.GetComponent<EdgeCollider2D>(); 
+            PolygonCollider2D polyCollider = number.GetComponent<PolygonCollider2D>(); 
+            // EdgeCollider2D polyCollider = number.GetComponent<EdgeCollider2D>(); 
             _points = Vectorize.ProcessTexture(drawingTexture);
-            List<Vector2> simplifiedPoints  = VertexSimplification.DouglasPeuckerSimplification(_points, 0.001f);
+            List<Vector2> simplifiedPoints  = VertexSimplification.DouglasPeuckerSimplification(_points, 0.0001f);
             _points = simplifiedPoints; 
 
             polyCollider.points = _points.ToArray();
