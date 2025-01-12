@@ -10,6 +10,9 @@ public class VectorSketcher : MonoBehaviour
     [SerializeField] private int _strokeWidth = 8;
     [SerializeField] private float _delay = 1f;
     [SerializeField] private GameObject _numberPrefab;
+    [SerializeField] private DigitClassifier _digitClassifier;
+    // [SerializeField] private Image nuimage;
+
     private Image image;
     private Color[] pixels;
     private StrokeManager strokeManager = new StrokeManager();
@@ -37,7 +40,7 @@ public class VectorSketcher : MonoBehaviour
             Vector2 point = Input.mousePosition;
             point.x /= Screen.width;
             point.y /= Screen.height;
-            strokeManager.AddPoint(point, drawingTexture, _strokeWidth);
+            strokeManager.AddPoint(point, drawingTexture, _strokeWidth, Color.white);
         }
 
         // if(Input.GetMouseButtonUp(0)){
@@ -87,9 +90,34 @@ public class VectorSketcher : MonoBehaviour
             SetColliderPaths(polyCollider);
 
             strokeManager.ClearStrokes();
-            FillWithColor(Color.clear);
+            FillWithColor(drawingTexture, Color.clear);
+
+            // Texture2D newTexture = _digitClassifier.trainingSet[UnityEngine.Random.Range(0, 100)].image;
+            int maxDim = Mathf.Max(numTexture.width, numTexture.height);
+            Debug.Log("maxDim: " + maxDim);
+            maxDim += (int)(0.35f * maxDim); 
+            Debug.Log("maxDim: " + maxDim);
+            Texture2D newTexture = new Texture2D(maxDim, maxDim);
+            FillWithColor(newTexture, Color.black);
+            Color[] pixels = numTexture.GetPixels();
+            int startX = (maxDim - numTexture.width)/2;
+            int startY = (maxDim - numTexture.height)/2;
+            newTexture.SetPixels(startX, startY, numTexture.width, numTexture.height, pixels);
+
+            // float[] texArr = DigitClassifier.PreprocessImage(newTexture);
+            // // logData(texArr);
+            // Sprite newSpr = Sprite.Create(newTexture, new Rect(0, 0, 28, 28), new Vector2(0.5f, 0.5f));
+            // nuimage.sprite = newSpr;
+            (int digitClass, float confidence) = _digitClassifier.Classify(newTexture);
+            Debug.Log("Digit: " + digitClass + ", Confidence: " + confidence);
         }
         delayCountdown -= Time.deltaTime;        
+    }
+
+    void logData(float[] arr){
+        for(int i = 0; i < arr.Length; i++){
+            Debug.Log(arr[i]);
+        }
     }
 
     void OnDrawGizmos(){
@@ -119,18 +147,18 @@ public class VectorSketcher : MonoBehaviour
         drawingTexture = new Texture2D(Mathf.RoundToInt(width.x), Mathf.RoundToInt(width.y));
         drawingTexture.filterMode = FilterMode.Point;
         
-        FillWithColor(Color.clear);
+        FillWithColor(drawingTexture, Color.clear);
     }
 
-    public void FillWithColor(Color color){
+    public void FillWithColor(Texture2D tex, Color color){
         // Initialize pixel array
-        pixels = new Color[drawingTexture.width * drawingTexture.height];
+        pixels = new Color[tex.width * tex.height];
         for (int i = 0; i < pixels.Length; i++)
         {
             pixels[i] = color;
         }
-        drawingTexture.SetPixels(pixels);
-        drawingTexture.Apply();
+        tex.SetPixels(pixels);
+        tex.Apply();
     }
 
     private void SetupImage()
@@ -152,21 +180,8 @@ public class VectorSketcher : MonoBehaviour
 
     public static Texture2D CropTexture(Texture2D sourceTexture, out Vector2Int min)
     {
-        min = new Vector2Int(int.MaxValue, int.MaxValue);
-        Vector2Int max = new Vector2Int(int.MinValue, int.MinValue);
-        for(int i = 0; i < sourceTexture.width; i++)
-        {
-            for(int j = 0; j < sourceTexture.height; j++)
-            {
-                if(sourceTexture.GetPixel(i, j).a > 0)
-                {
-                    if(i < min.x) min.x = i;
-                    if(j < min.y) min.y = j;
-                    if(i > max.x) max.x = i;
-                    if(j > max.y) max.y = j;
-                }
-            }
-        }
+        (Vector2Int minn, Vector2Int max) = HelperFunctions.GetTextureBounds(sourceTexture);
+        min = minn;
         int width = max.x - min.x;
         int height = max.y - min.y;
 
@@ -330,7 +345,7 @@ public class StrokeManager
     }
 
 
-    public void AddPoint(Vector2 point, Texture2D texture, int radius)
+    public void AddPoint(Vector2 point, Texture2D texture, int radius, Color color)
     {
         if (currentStroke == null) return;
 
@@ -349,7 +364,7 @@ public class StrokeManager
         float distance = Vector2.Distance(texCoord, prevTexCoord);
         if(distance <= 1)
         {
-            AddPixel(texCoord.x, texCoord.y, Color.black, texture.width, texture.height, radius);
+            AddPixel(texCoord.x, texCoord.y, color, texture.width, texture.height, radius);
         }
         else
         {
@@ -359,7 +374,7 @@ public class StrokeManager
                 float t = i / (float)numberOfPoints;
                 Vector2 interpolatedPosition = Vector2.Lerp(prevTexCoord, texCoord, t);
 
-                AddPixel(Mathf.RoundToInt(interpolatedPosition.x), Mathf.RoundToInt(interpolatedPosition.y), Color.black, texture.width, texture.height, radius);
+                AddPixel(Mathf.RoundToInt(interpolatedPosition.x), Mathf.RoundToInt(interpolatedPosition.y), color, texture.width, texture.height, radius);
             }
         }
 
@@ -383,7 +398,7 @@ public class StrokeManager
                     pixelY >= 0 && pixelY < tHeight)
                 {
                     int index = pixelX + (pixelY * tWidth);
-                    pixels[index] = Color.black; // Or any color you want
+                    pixels[index] = color; // Or any color you want
                 }
             }
         }
